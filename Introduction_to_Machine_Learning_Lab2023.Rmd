@@ -240,7 +240,7 @@ ggplot(datalab111, aes(x=x1, y=x2, color=y, size=size)) +
   xlab("x1") +
   ylab("x2") +
   ggtitle("Data with estimated Centers") +
-  guides(size = FALSE)
+  guides(size = "none")
 ```
 
 
@@ -336,6 +336,22 @@ legend = levels(subject_type_trn),
 pch = 1:nlevels(subject_type_trn), 
 col = 1:nlevels(subject_type_trn))
 ```
+
+```{r}
+# BiocManager::install("mixOmics")
+library(mixOmics)
+mixPCA <- mixOmics::pca(intensity_trn_preproc)
+
+mixOmics::plotIndiv(mixPCA, 
+                    group = as.integer(subject_type_trn),
+                    ind.names = as.integer(subject_type_trn),
+                    legend = TRUE,
+                    ellipse = TRUE,
+                    ellipse.level = 0.95,
+                    col.per.group = c("green", "darkred", "cyan")
+)
+```
+
 
 We can retrieve the new feature vectors after dimensionality reduction. In other words, these are the projections of the feature vector in the space spanned by the first eigenvectors of the covariance matrix. Those eigenvectors are now the new space basis. For classifier design this value needs to be optimized. It is always advisable to have many more samples than dimensions. Additionally we project the test data into the model computed with the train data.
 
