@@ -417,12 +417,26 @@ We can calculate the confusion matrix. Take some time to understand this table.
 subject_type_tst_pca_knn_pred <- class::knn(train = intensity_scores_trn, 
                                             test = intensity_scores_test, 
                                             cl = subject_type_trn, 
-                                            k = 3)
+                                            k = 5) # k = 3
 
 confmat_pca_knn <- table(subject_type_tst, subject_type_tst_pca_knn_pred)
 print(confmat_pca_knn)
 CR_pca_knn <- sum(diag(confmat_pca_knn))/sum(confmat_pca_knn)
+message(CR_pca_knn)
 message("The classification rate for PCA-kNN is: ", 100*round(CR_pca_knn, 2), "%")
+```
+
+
+```{r}
+?binom.test
+
+number_of_observations <- sum(confmat_pca_knn)
+number_of_hits <- sum(diag(confmat_pca_knn))
+probability <- number_of_hits/number_of_observations # 0.75
+probability
+confident_level <- binom.test(number_of_hits, number_of_observations, probability, conf.level = 0.95)
+
+confident_level$conf.int
 ```
 
 ```{r, fig.height=5}
