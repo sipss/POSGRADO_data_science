@@ -67,6 +67,11 @@ data(Prostate2000Raw, package = "ChemometricsWithRData")
 mz_prost <- Prostate2000Raw$mz
 intensity_with_replicates <- Prostate2000Raw$intensity
 medical_cond <- Prostate2000Raw$type
+
+levels(medical_cond)
+print("benign prostatic hyperplasia = bph")
+print("benign prostatic hyperplasia = control")
+print("patients with prostate cancer = pca")
 ```
 
 
@@ -340,7 +345,7 @@ col = 1:nlevels(subject_type_trn))
 ```{r}
 # BiocManager::install("mixOmics")
 library(mixOmics)
-mixPCA <- mixOmics::pca(intensity_trn_preproc)
+mixPCA <- mixOmics::pca(as.data.frame(intensity_trn_preproc), ncomp = 2, scale = FALSE)
 
 mixOmics::plotIndiv(mixPCA, 
                     group = as.integer(subject_type_trn),
@@ -351,6 +356,11 @@ mixOmics::plotIndiv(mixPCA,
                     col.per.group = c("green", "darkred", "cyan")
 )
 ```
+
+```{r}
+plotLoadings(mixPCA, comp = 1, ndisplay = 20)
+```
+
 
 
 We can retrieve the new feature vectors after dimensionality reduction. In other words, these are the projections of the feature vector in the space spanned by the first eigenvectors of the covariance matrix. Those eigenvectors are now the new space basis. For classifier design this value needs to be optimized. It is always advisable to have many more samples than dimensions. Additionally we project the test data into the model computed with the train data.
@@ -407,7 +417,7 @@ We can calculate the confusion matrix. Take some time to understand this table.
 subject_type_tst_pca_knn_pred <- class::knn(train = intensity_scores_trn, 
                                             test = intensity_scores_test, 
                                             cl = subject_type_trn, 
-                                            k = 5)
+                                            k = 3)
 
 confmat_pca_knn <- table(subject_type_tst, subject_type_tst_pca_knn_pred)
 print(confmat_pca_knn)
@@ -502,6 +512,10 @@ intensity_scores_cv_test <- ChemometricsWithR::project(pca_cv_model, npc = pca_m
 }
 ```
 
+```{r}
+head(as.data.frame(classification_rates))
+```
+
 
 ```{r}
 # Plot the classification rates obtained on each k-fold iteration for all # the principal components tested:
@@ -515,6 +529,8 @@ legend("bottomright", legend = c("It. 1", "It. 2", "It. 3", "It. 4"),
 # and build the final model again. (50 was a fine value)
 # Our estimation of the model performance choosing 50 principal components can # be represented as a single point in the plot:
 points(x = pca_model_ncomp, y = CR_pca_knn, col = "black", cex = 2, pch = 21, bg = "black")
+pca_model_ncomp
+CR_pca_knn
 ```
 
 
