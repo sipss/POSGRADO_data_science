@@ -1,0 +1,281 @@
+---
+title: "Linear Regression & Feature Selection "
+author: "Francisco Madrid, Toni Pardo"
+date: "2023-03-30"
+output:
+  pdf_document: null
+  word_document: default
+---
+
+
+For this lab we will use the Prostate Cancer Data from the ElemStatLearn package. (This package is deprecated but you can still find a archived version in https://cran.r-project.org/src/contrib/Archive/ElemStatLearn/). This dataset allows to examine the correlation between the level of prostate-specific antigen and a number clinical measurements in men who were about to receive a radical prostatectomy.
+
+A data frame with 97 observations on the following 10 variables.
+
+**lcavol**: log cancer volume
+**lweight**: log prostate weight
+**age**: in years
+**lbph**: log of the amount of benign prostatic hyperplasia
+**svi**: seminal vesicle invasion
+**lcp**: log of capsular penetration
+**gleason**: a numeric vector from pathohistology examinations
+**pgg45**: percent of Gleason score 4 or 5
+**lpsa**: response. This is the quantity that we aim to predict.
+train: a logical vector
+
+The last column indicates which 67 observations were used as the "training set" and which 30 as the test set. This dataset was originally published by Stamey et al.[1] 
+
+
+# Introduction
+
+First, install the package ElemStatLearn in order to load the prostate data with:
+
+```{r, fig.height= 8, fig.width= 12}
+# install.packages("ElemStatLearn")
+
+library(ElemStatLearn)
+library(pracma)
+library(MASS)
+data(prostate)
+
+## Do a first inspection of the data structure with:
+pairs( prostate[,1:9], col="violet" )
+```
+
+
+A way to inspect the relationship among the regressors is to compute their covariance matrix. You can do that using cor. Find the highest correlated regressors. In order to produce a heatmap of the correlation matrix you may use heatmap with symm=TRUE.
+
+```{r}
+# Correlations
+cor(prostate[,1:8])
+
+# Heatmap
+heatmap(cor( prostate[,1:8] ), symm=TRUE)
+```
+
+Now scale columns 1 to 8 and bind the 9 column to obtain a data.frame prost.std. Follow by doing the partition in train and test using the column 10 of the original data: `data.train` and `data.test`.
+
+```{r}
+prost <- prostate
+
+prost.std <- data.frame(cbind(scale(prost[,1:8]),prost$lpsa))
+names(prost.std)[9] <- 'lpsa'
+data.train <- prost.std[prost$train,]
+data.test <- prost.std[!prost$train,]
+y.train<-data.train$lpsa
+y.test <- data.test$lpsa
+n.train <- nrow(data.train)
+```
+
+
+# Ordinary Least Squares
+
+Once we have the data, let us start exploring this data with ordinary least squares (OLS). For this you can use the `lm` command from basic R.  
+
+You may inspect the model with summary in order to learn about the significance of the model coefficients. What are the most significant coefficients? To do that use summary on the OLS model.
+
+Now with the fitted model in the train data you can predict the test data using `predict`. You can calculate the squared residuals for the test data. You may store them in a variable in order to do a posterior comparison with other methods.
+
+In order to have a better feeling how this fitting looks like, you can plot the predicted test data vs the real test response values. If you decide to add the train data as well, please use a different symbol. Add also a line with slope one and intercept zero. Now fit a straight line between the test predictions and the actual data also using lm. Plot with a different color the actual best fit and compare with the ideal line you have plotted before. To do this plot, inspect the results of the linear model to find the fitted values. Compare the slope and the intercept to the ideal line. 
+In order to understand better the issues with multivariate ols, let us see how the significance of a feature depends on another feature. First fir lpsa against svi and inspect the model coefficients. Now fit lpsa against svi and lcavol. How the significance of svi coefficient has changed? 
+
+```{r}
+m.ols <- lm(lpsa ~ . , data=data.train)
+summary(m.ols)
+```
+
+```{r}
+y.pred.ols <- predict(m.ols,data.test)
+y.predtrain.ols<-predict(m.ols,data.train)
+RS.ols <- (y.pred.ols - y.test)^2
+summary((y.pred.ols - y.test)^2)
+mean((y.pred.ols - y.test)^2)/var(y.test)
+plot(y.test,y.pred.ols)
+points(y.train, y.predtrain.ols,pch=8)
+lines(c(0,6),c(0,6), type="line", col="red")
+
+fiteval <- data.frame(cbind(y.test,y.pred.ols))
+names(fiteval)[1]<-'real'
+names(fiteval)[2]<-'pred'
+m.olseval<-lm(pred~real, data=fiteval)
+summary(m.olseval)
+lines(y.test, m.olseval$fitted.values, col="blue")
+```
+
+```{r}
+# the importance of a feature depends on other features. Compare the following. Explain (visualize).
+summary(lm(lpsa~svi, data = data.train))
+summary(lm(lpsa~svi+lcavol, data = data.train))
+```
+# Best subset selection: Exhaustive Search and Sequential Searches
+
+In subset selection we aim to select the best subset of *p* regressors among a total of *k* regressors using n training samples.
+
+For best subset selection we will be using the leaps library. Leaps implements several criteria to decide on the best model using only the training data. We will not go deep on the theory, but mostly they are a combination of the Residuals Sum of Squares (RSS) and some penalty term that depends on the number of coefficients and the number of training data. One of them is the *Mallows’ Cp* statistics [2].
+
+The command leaps does an exhaustive search for the best subsets using a branch and bound algorithm. The branch and bound algorithm is able to skip some of the cases because RSSp decreases monolithically with p. (Look for the branch and bound algorithm for more details).[3]
+
+```{r}
+library(leaps)
+lr2 <- leaps(data.train[,1:8],data.train[,9],method='r2',nbest=1)
+lcp <- leaps(data.train[,1:8],data.train[,9],method='Cp', nbest=1)
+```
+
+the argument `nbest = 1` ensures that it only returns the best model for each number of variables. Please interpret the information contained in lr2 and look how the variables are added to the model.`
+
+Plot the adjusted R2 against the size of the subset. Look at the contents of lr2. Do the same with the Mallows’ Cp. Try to think what is the minimum subset that may give the best results according these criteria.
+
+```{r}
+plot(lr2$size,lr2$r2)
+plot(lcp$size,lcp$Cp)
+```
+
+One way to select the best model is to find the absolute minimum of Cp, though due to the parsimony criteria a model with less coefficients is probably better.
+Select the one with the minimum Cp. To do that you may use which.min to select the best row. Can you see which variables have been selected?
+
+```{r}
+# Select best model according to Cp
+bestfeat <- lcp$which[which.min(lcp$Cp),]
+```
+
+Fit a linear model only with the selected variables and do the same diagnostics as we did in the previous section with the OLS model. In particular, find the prediction for the test data and the squared residuals.
+
+```{r}
+# Train and test the model on the best subset
+m.bestsubset <- lm(lpsa ~ .,data=data.train[,bestfeat])
+summary(m.bestsubset)
+
+y.pred.bestsubset <- predict(m.bestsubset,data.test[,bestfeat])
+RS.leaps.cp<-(y.pred.ols - y.test)^2
+summary((y.pred.bestsubset - y.test)^2)
+
+boxplot(RS.ols,RS.leaps.cp)
+```
+
+Interpret the result of the algorithm. Explain with your own words which combinations of variables is the algorithm exploring at each step. Compare the obtained result with the previous result by SFS or SBS.
+
+# Ridge Regression
+
+Now, let us consider regularization techniques starting with Ridge Regression. This technique is implemented in the MASS package with the function `lm.ridge`. Look at the example and fit a model while scanning the lambda from 0 to 20 in steps of 0.1. This function computes the Generalized Cross-Validation (GCV). GCV was proposed by Golub et al. [4] as an approximation of the LOO CV estimator with the advantage of avoiding the use of test data. Now plot m.ridge$GCV where m.ridge is the regression model as a function of lambda. Find the regularization parameter with the lowest GCV and the corresponding regression coefficients. In this package, the function predict is not implemented for ridge regression models so I suggest you to implement the prediction yourselves.
+
+```{r}
+library(MASS)
+m.ridge <- lm.ridge(lpsa ~ .,data=data.train, lambda = seq(0,20,0.1))
+plot(m.ridge)
+
+# select parameter by minimum GCV
+plot(m.ridge$GCV)
+
+# Predict is not implemented so we need to do it ourselves
+y.pred.ridge = scale(data.test[,1:8],center = F, scale = m.ridge$scales)%*% m.ridge$coef[,which.min(m.ridge$GCV)] + m.ridge$ym
+summary((y.pred.ridge - y.test)^2)
+```
+
+
+# LASSO
+
+The LASSO algorithm for sparse multilinear regression is implemented in the lars package.  Since lars executes different variants of LASSO, specify that you want to use `type=”lasso”` which is the basic LASSO algorithm. Caution: Data Inputs should be in matrix form. Once you have fitted the model use plot directly on the resulting model to see the evolution of the model parameters when the regularization parameter changes. 
+
+You may see in which order the parameters are forced to zero value. Note that in the x-axis you have the L1 modulus of the coefficient vector compared to the maximum L1 modulus of the coefficient vector corresponding to the OLS solution. L1 modulus is calculated as the sum of the absolute values of the coefficients.
+
+In order to determine the best regularization parameter we can use cross-validation. Specifically k-fold. For that purpose you can use`cv.lars`. In the help you will see that `cv.lars` uses `k = 10` as default. You may force `cv.lars` to produce a plot with the standard deviations of the MSE over the folds. Inspect the resulting plot and taking into account the parsimony principle think of the best model you may select. Beyond that we can take the absolute minimum of the CV plot in order to select the regularization parameter. Do you think this is the simplest model that provides similar MSE. Propose an additional criteria to select the regularization parameter.
+
+```{r}
+library(lars)
+
+m.lasso <- lars(as.matrix(data.train[,1:8]),data.train$lpsa, type="lasso")
+plot(m.lasso)
+
+# Cross-validation
+r <- cv.lars(as.matrix(data.train[,1:8]),data.train$lpsa, type = "lasso", plot.it = TRUE, se = TRUE)
+
+##### Note 5/8/11: in the newer versions of lars package (> 0.9-8), the field r$fraction seems to have been replaced by r$index. The previous line should therefore be replaced by:
+bestfraction <- r$index[which.min(r$cv)]
+
+# Observe coefficients
+coef.lasso <- predict(m.lasso,as.matrix(data.test[,1:8]), s = bestfraction, type = "coefficient", mode="fraction")
+coef.lasso
+
+coef.lasso2 <- predict(m.lasso,as.matrix(data.test[,1:8]), s = 0.55, type = "coefficient", mode = "fraction")
+coef.lasso2
+
+# Prediction
+y.pred.lasso <- predict(m.lasso,as.matrix(data.test[,1:8]), s = bestfraction, type = "fit", mode = "fraction")$fit
+
+# Test error
+summary((y.pred.lasso - y.test)^2)
+
+# Prediction parsimonious model
+y.pred.lasso2 <- predict(m.lasso,as.matrix(data.test[,1:8]), s = 0.55, type = "fit", mode="fraction")$fit
+
+# Test error
+summary((y.pred.lasso2 - y.test)^2)
+```
+
+
+# MUVR
+
+MUVR is an algorithm to improve predictive performance and minimize overfitting and false positives in multivariate analysis. In the MUVR algorithm, minimal variable selection is achieved by performing **recursive variable elimination in a repeated double crossvalidation (rdCV) procedure**. The algorithm supports partial least squares and random forest modelling, and simultaneously identifies minimal-optimal and all-relevant variable sets for regression, classification and multilevel analyses.
+
+By averaging variable ranks over the inner segments before variable reduction in each **recursive backwards elimination step**, potential overfitting that may occur during model training and variable ranking is minimized.
+
+```{r}
+library(MUVR)
+library(doParallel)
+```
+
+```{r}
+cl <- parallel::makeCluster(parallel::detectCores()-1)       
+doParallel::registerDoParallel(cl)
+
+model_PLS <- MUVR::MUVR(prost.std[ ,-9], prost.std[ , "lpsa"], 
+                        ML = F, 
+                        method ='PLS',
+                        nRep = 20, 
+                        nOuter = 5, 
+                        varRatio = 0.8)
+stopCluster(cl)
+```
+
+
+For final estimation of fitness and model predictive ability, Q2 is used for regression analysis, facilitating interpretation of modelling fitness, regardless of the scale of the original dependent variable (upper bounded by 1 for perfect prediction). This is in contrast to the inner validation loop, where RMSEP estimates fitness in the original response scale and is thus suitable for averaging.
+
+```{r}
+plotMV(model_PLS)
+```
+
+
+```{r}
+cl <- parallel::makeCluster(parallel::detectCores()-1)       
+doParallel::registerDoParallel(cl)
+perm <- MUVR::permutations(model_PLS, nPerm = 10)
+stopCluster(cl)
+```
+
+```{r}
+MUVR::permutationPlot(model_PLS, perm)
+```
+
+```{r}
+MUVR::getVIP(model_PLS)
+```
+
+```{r}
+summary(m.bestsubset) # from OLS
+```
+Variable ranking and selection are performed in the inner validation loop and final model performance is then assessed using observations in the test segment that is never used for model training or tuning.
+In each of the inner training models, variables are ranked by de facto standard techniques, i.e. variable importance of projection (VIP) for PLS analysis (Mehmood et al., 2011) and mean decrease in Gini index (classification) or mean decrease in accuracy (regression)
+for RF analysis (Strobl et al., 2007). For each iteration of the variable tuning, variable ranks are averaged between the inner models.
+
+```{r}
+MUVR::plotVIP(model_PLS)
+MUVR::plotStability(model_PLS)
+```
+
+Arbitration of model performance in variable tuning within the inner validation loop is performed using different fitness functions specifically adapted to the problem type: Root mean square error of prediction (RMSEP) for regression and number of misclassifications
+(MISS) for multilevel or general classification analysis (two or more classes). The area under the receiver operation characteristics curve (AUROC) and balanced error rate (BER) are supported as optional fitness metrics for classification.
+
+```{r}
+MUVR::plotVAL(model_PLS)
+```
+
