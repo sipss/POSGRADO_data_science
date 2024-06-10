@@ -129,6 +129,7 @@ If you look at a given m/z variable and check the intensity values you can see t
 ```{r}
 hist(intensity_avg[2000,], breaks = 200, xlab = "Intensity (a.u.)", 
 main = sprintf("Histogram of 327 raw intensities with m/z = %f Da", mz_prost[2000]))
+
 hist(intensity_log[2000,], breaks = 200, xlab = "log-Intensity (a.u.)",
 main = sprintf("Histogram of 327 log intensities with m/z = %f Da", mz_prost[2000]))
 ```
@@ -200,6 +201,7 @@ Let us first implement a knn classifier in the raw input space.
 subject_type_tst_knn_pred <- class::knn(train = intensity_trn,
                                             test = intensity_tst,
                                             cl = subject_type_trn, k = 5)
+
 confmat_knn <- table(subject_type_tst, subject_type_tst_knn_pred)
 print(confmat_knn)
 
