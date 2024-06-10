@@ -76,7 +76,7 @@ medical_cond <- Prostate2000Raw$type
 
 levels(medical_cond)
 print("benign prostatic hyperplasia = bph")
-print("benign prostatic hyperplasia = control")
+print("control patients = control")
 print("patients with prostate cancer = pca")
 ```
 
