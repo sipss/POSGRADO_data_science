@@ -3,8 +3,8 @@ title: "Introduction to Machine Learning Classification lab for Mass Spectrometr
 author: "Francisco Madrid, Toni Pardo"
 date: "2024"
 output:
-  word_document: default
   pdf_document: null
+  word_document: default
 ---
 
 ```{r setup, include=FALSE}
@@ -41,20 +41,43 @@ In this lab we will explore several feature extraction and classification techni
 We start loading all the needed packages and the data using the RStudio terminal. Optionally, you can obtain the same results using the following code lines:
 <text># run `install.packages` only if packages are not already installed!</text>
 
-`install.packages(c("ChemometricsWithR", "MASS"))`
-
-`install.packages(c("e1071", "sfsmisc", "class", "caret", ”lolR”))`
-
-`packageurl <- "http://cran.r-project.org/src/contrib/Archive/ChemometricsWithRData/ChemometricsWithRData_0.1.3.tar.gz"`
-`install.packages(packageurl, repos=NULL, type="source")`
 
 ```{r}
-packageurl <- "http://cran.r-project.org/src/contrib/Archive/ChemometricsWithRData/ChemometricsWithRData_0.1.3.tar.gz"
-install.packages(packageurl, repos=NULL, type="source")
+install.packages(c('e1071', 'sfsmisc', 'class', 'caret', 'lolR'))
 ```
 
 
-```{r warning=FALSE}
+```{r}
+install.packages(c('pls', 'kohonen', 'devtools'))
+```
+
+
+```{r}
+install.packages('BiocManager')
+BiocManager::install("mixOmics")
+```
+
+
+```{r}
+install.packages('MASS')
+```
+
+
+```{r}
+packageurl1 <- "http://cran.r-project.org/src/contrib/Archive/ChemometricsWithRData/ChemometricsWithRData_0.1.3.tar.gz"
+
+install.packages(packageurl1, repos=NULL, type="source")
+```
+
+
+```{r}
+packageurl2 <- "http://cran.r-project.org/src/contrib/Archive/ChemometricsWithR/ChemometricsWithR_0.1.13.tar.gz"
+
+install.packages(packageurl2, repos=NULL, type="source")
+```
+
+
+```{r message=FALSE, warning=FALSE}
 library("ChemometricsWithR")
 library("MASS")
 library("pls")
@@ -80,6 +103,10 @@ print("control patients = control")
 print("patients with prostate cancer = pca")
 ```
 
+```{r}
+rm(Prostate2000Raw)
+```
+
 
 # Preprocessing
 
@@ -97,6 +124,8 @@ intensity_avg <- matrix(0, nrow = nrow(intensity_with_replicates), ncol = num_su
 for (i in seq(1, num_subjects)) {
 intensity_avg[, i] <- rowMeans(intensity_with_replicates[, c(2*i - 1, 2*i)])
 }
+
+rm(intensity_with_replicates)
 ```
 
 medical_cond has 654 class values, one for each spectrum. We take one every two types to have 327 values, one for each subject in our intensity_avg matrix:
@@ -107,7 +136,13 @@ subject_type <- medical_cond[seq(from = 1, to = 654, by = 2)]
 
 
 ```{r}
-plot(intensity_avg[1,], type = "l")
+plot(intensity_avg[,1], type = "l")
+```
+
+## Removing spurious areas
+
+```{r}
+intensity_avg <- intensity_avg[-8500:-11000,]
 ```
 
 
@@ -122,8 +157,13 @@ Therefore, if we create our models using the logarithm of the intensities instea
 ```{r}
 # First we transform the intensity values to a log scale. To do that, we # create a copy of our data and then transform it:
 intensity_log <- intensity_avg
+
 # values close to zero would go to -infinity. We want to avoid that. A simple # solution is to use a threshold:
-intensity_log[intensity_log < 5e-3] <- 5e-3 
+## Detected abnormal 0 values
+length(intensity_log[intensity_log == 0])
+length(intensity_log[intensity_log < 0])
+
+intensity_log[intensity_log < 5e-2] <- 5e-2 
 # log transformation:
 intensity_log <- log10(intensity_log)
 ```
@@ -144,6 +184,8 @@ The classification algorithms assume that each sample is given in a row, therefo
 
 ```{r}
 intensity <- t(intensity_log)
+
+rm(intensity_avg, intensity_log)
 ```
 
 
@@ -172,15 +214,15 @@ We will use 60% of the samples for training and 40% of samples for test, having 
 
 ```{r}
 pca_idx <- which(subject_type == "pca")
-pca_idx_train <- sample(pca_idx, round(0.6*length(pca_idx))) 
+pca_idx_train <- sample(pca_idx, round(0.75*length(pca_idx))) 
 pca_idx_test <- setdiff(pca_idx, pca_idx_train)
 
 bph_idx <- which(subject_type == "bph")
-bph_idx_train <- sample(bph_idx, round(0.6*length(bph_idx))) 
+bph_idx_train <- sample(bph_idx, round(0.75*length(bph_idx))) 
 bph_idx_test <- setdiff(bph_idx, bph_idx_train)
 
 ctrl_idx <- which(subject_type == "control")
-ctrl_idx_train <- sample(ctrl_idx, round(0.6*length(ctrl_idx))) 
+ctrl_idx_train <- sample(ctrl_idx, round(0.75*length(ctrl_idx))) 
 ctrl_idx_test <- setdiff(ctrl_idx, ctrl_idx_train)
 
 train_idx <- c(pca_idx_train, bph_idx_train, ctrl_idx_train) 
@@ -214,6 +256,10 @@ CR_knn <- sum(diag(confmat_knn))/sum(confmat_knn)
 message("The classification rate for kNN is: ", 100*round(CR_knn, 2), "%")
 ```
 
+```{r}
+rm(subject_type_tst_knn_pred)
+```
+
 
 # Nearest Centroid Classifier
 
@@ -223,7 +269,7 @@ In this section we are going to use a Nearest Centroid Classifier using the ‘l
 X <- intensity_trn
 Y <- subject_type_trn
 
-datalab1<-data.frame(x1=X[,2000],x2=X[,2010],y=Y)
+datalab1<-data.frame(x1=X[,2000],x2=X[,2005],y=Y)
 datalab1$y<-factor(datalab1$y)
 
 ggplot(datalab1, aes(x = x1, y = x2, color = y)) +
@@ -249,7 +295,7 @@ Now let’s plot the centroids on the same scatter plot. Please take into accoun
 ```{r}
 datalab11 <- cbind(datalab1,data.frame(size = 1))
 datalab111 <- rbind(datalab11,data.frame(x1 = classifier$centroids[,2000],
-                                         x2 = classifier$centroids[,2010],
+                                         x2 = classifier$centroids[,2005],
                                          y = classifier$ylabs, 
                                          size = 5))
 
@@ -355,8 +401,8 @@ pch = 1:nlevels(subject_type_trn),
 col = 1:nlevels(subject_type_trn))
 ```
 
+
 ```{r}
-# BiocManager::install("mixOmics")
 library(mixOmics)
 mixPCA <- mixOmics::pca(as.data.frame(intensity_trn_preproc), ncomp = 2, scale = FALSE)
 
@@ -371,9 +417,15 @@ mixOmics::plotIndiv(mixPCA,
 ```
 
 ```{r}
-plotLoadings(mixPCA, comp = 1, ndisplay = 20)
+plotLoadings(mixPCA, comp = 1, ndisplay = 10)
 ```
 
+
+Remove heavy objects from enviroment
+
+```{r}
+rm(mixPCA)
+```
 
 
 We can retrieve the new feature vectors after dimensionality reduction. In other words, these are the projections of the feature vector in the space spanned by the first eigenvectors of the covariance matrix. Those eigenvectors are now the new space basis. For classifier design this value needs to be optimized. It is always advisable to have many more samples than dimensions. Additionally we project the test data into the model computed with the train data.
@@ -571,4 +623,3 @@ What would be our prediction if we built a model without benign prostatic hypert
 How do you compare the prediction in internal validation and in external validation. Surprisingly it seems results are better in external validation than in internal validation. Could you reason why this can happen?
 
 In this case, dimensionality reduction does not improve the performance of the classifier. Do you think this behavior could repeat in classifiers of higher complexity?
-
