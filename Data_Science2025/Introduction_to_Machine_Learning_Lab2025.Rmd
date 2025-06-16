@@ -215,6 +215,7 @@ To estimate how our trained model will perform, we need to split the dataset int
 We will use 60% of the samples for training and 40% of samples for test, having the training and test subsets balanced for each subject condition.
 
 ```{r}
+set.seed(51)
 pca_idx <- which(subject_type == "pca")
 pca_idx_train <- sample(pca_idx, round(0.75*length(pca_idx))) 
 pca_idx_test <- setdiff(pca_idx, pca_idx_train)
@@ -475,9 +476,10 @@ legend("topright",
 
 points(PCA_centroids[,1],
        PCA_centroids[,2], 
-       pch = 20, 
+       
+       pch = c(1:3), 
        col = as.factor(classifier[["ylabs"]]), 
-       cex = 1.5)
+       cex = 5)
 ```
 
 
