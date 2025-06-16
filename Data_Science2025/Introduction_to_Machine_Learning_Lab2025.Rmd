@@ -407,7 +407,7 @@ library(mixOmics)
 mixPCA <- mixOmics::pca(as.data.frame(intensity_trn_preproc), ncomp = 2, scale = FALSE)
 
 mixOmics::plotIndiv(mixPCA, 
-                    group = as.integer(subject_type_trn),
+                    group = subject_type_trn,
                     ind.names = as.integer(subject_type_trn),
                     legend = TRUE,
                     ellipse = TRUE,
@@ -432,7 +432,7 @@ We can retrieve the new feature vectors after dimensionality reduction. In other
 
 ```{r}
 pca_model_ncomp <- 50
-intensity_scores_trn <- project(pca_model, npc = pca_model_ncomp, intensity_trn_preproc)
+intensity_scores_trn <- ChemometricsWithR::project(pca_model, npc = pca_model_ncomp, intensity_trn_preproc)
 intensity_scores_test <- project(pca_model, npc = pca_model_ncomp, intensity_tst_preproc)
 ```
 
@@ -453,7 +453,7 @@ We can also visualize the loadings of the PCA model. These loadings select regio
 By looking at the first loading, we will see the variables that were used to compute the scores of the first principal component.
 
 ```{r}
-pca_model_loadings <- loadings(pca_model, pca_model_ncomp)
+pca_model_loadings <- pls::loadings(pca_model, pca_model_ncomp)
 
 matplot(pca_model_loadings[,c(1,2)], col = c(1,2), type = 'l')
 ```
