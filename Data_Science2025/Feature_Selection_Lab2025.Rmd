@@ -7,6 +7,7 @@ output:
   word_document: default
 ---
 
+Contact: `fmadrid@researchmar.net`
 
 For this lab we will use the Prostate Cancer Data from the ElemStatLearn package. (This package is deprecated but you can still find a archived version in https://cran.r-project.org/src/contrib/Archive/ElemStatLearn/). This dataset allows to examine the correlation between the level of prostate-specific antigen and a number clinical measurements in men who were about to receive a radical prostatectomy.
 
